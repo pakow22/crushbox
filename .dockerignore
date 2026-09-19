@@ -8,4 +8,5 @@ publish/
 *.log
 appsettings.json
 App_Data/
-data/
+data/users.json
+data/users.json.tmp
