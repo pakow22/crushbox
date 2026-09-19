@@ -6,6 +6,13 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 
+var platformPort = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(platformPort) &&
+    string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    Environment.SetEnvironmentVariable("ASPNETCORE_URLS", $"http://0.0.0.0:{platformPort}");
+}
+
 var builder = WebApplication.CreateBuilder(args);
 var token = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN") ??
             builder.Configuration["Telegram:BotToken"];
@@ -16,11 +23,13 @@ if (string.IsNullOrWhiteSpace(token))
         "Set TELEGRAM_BOT_TOKEN or Telegram:BotToken in appsettings.json.");
 }
 
-var koyebPublicDomain = Environment.GetEnvironmentVariable("KOYEB_PUBLIC_DOMAIN")?.Trim();
+var platformPublicDomain =
+    Environment.GetEnvironmentVariable("RAILWAY_PUBLIC_DOMAIN")?.Trim() ??
+    Environment.GetEnvironmentVariable("KOYEB_PUBLIC_DOMAIN")?.Trim();
 var webhookUrl = builder.Configuration["Telegram:WebhookUrl"]?.TrimEnd('/');
-if (string.IsNullOrWhiteSpace(webhookUrl) && !string.IsNullOrWhiteSpace(koyebPublicDomain))
+if (string.IsNullOrWhiteSpace(webhookUrl) && !string.IsNullOrWhiteSpace(platformPublicDomain))
 {
-    webhookUrl = $"https://{koyebPublicDomain.TrimEnd('/')}";
+    webhookUrl = $"https://{platformPublicDomain.TrimEnd('/')}";
 }
 
 var webhookSecret = builder.Configuration["Telegram:WebhookSecret"];
