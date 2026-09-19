@@ -217,7 +217,11 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
     {
         if (!user.IsRegistered)
         {
-            await botClient.SendMessage(chatId, "პროფილის შეცვლამდე ჯერ რეგისტრაცია დაასრულე /start-ით.", cancellationToken: cancellationToken);
+            await botClient.SendMessage(
+                chatId,
+                "პროფილის შევსება უკვე დაწყებულია. გააგრძელე მიმდინარე კითხვაზე პასუხით ან დააჭირე გაუქმებას.",
+                replyMarkup: CancelOnlyKeyboard(),
+                cancellationToken: cancellationToken);
             return;
         }
 
