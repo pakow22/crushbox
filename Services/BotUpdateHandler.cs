@@ -13,6 +13,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
     private const string StayText = "დარჩი";
     private const string StopText = "Stop";
     private const string EditProfileText = "პროფილის შეცვლა";
+    private const string BackText = "უკან";
     private const string CancelEditText = "გაუქმება";
     private const string SkipPhotoText = "გამოტოვება";
     private const string MaleText = "კაცი";
@@ -85,7 +86,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
             return;
         }
 
-        if (IsCommand(text, "cancel") || text is CancelEditText)
+        if (IsCommand(text, "cancel") || text is BackText or CancelEditText)
         {
             await CancelProfileEdit(botClient, chatId, cancellationToken);
             return;
@@ -219,7 +220,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
         {
             await botClient.SendMessage(
                 chatId,
-                "პროფილის შევსება უკვე დაწყებულია. გააგრძელე მიმდინარე კითხვაზე პასუხით ან დააჭირე გაუქმებას.",
+                "პროფილის შევსება უკვე დაწყებულია. გააგრძელე მიმდინარე კითხვაზე პასუხით ან დააჭირე უკან.",
                 replyMarkup: CancelOnlyKeyboard(),
                 cancellationToken: cancellationToken);
             return;
@@ -228,7 +229,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
         matchmaking.BeginProfileEdit(telegramUser, chatId);
         await botClient.SendMessage(
             chatId,
-            "დავიწყოთ პროფილის შეცვლა. დაწერე შენი სახელი.",
+            "დავიწყოთ პროფილის შეცვლა. დაწერე შენი სახელი ან დააჭირე უკან.",
             replyMarkup: CancelOnlyKeyboard(),
             cancellationToken: cancellationToken);
     }
@@ -532,7 +533,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
     private static ReplyKeyboardMarkup CancelOnlyKeyboard() =>
         new(new[]
         {
-            new KeyboardButton[] { CancelEditText }
+            new KeyboardButton[] { BackText }
         })
         {
             ResizeKeyboard = true

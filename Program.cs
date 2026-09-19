@@ -54,12 +54,13 @@ else
 builder.Services.AddSingleton<BotUpdateHandler>();
 
 var app = builder.Build();
+var deploymentVersion = Environment.GetEnvironmentVariable("RAILWAY_GIT_COMMIT_SHA") ?? "local";
 var botClient = app.Services.GetRequiredService<ITelegramBotClient>();
 var handler = app.Services.GetRequiredService<BotUpdateHandler>();
 var receiverOptions = new ReceiverOptions { AllowedUpdates = [UpdateType.Message] };
 
-app.MapGet("/", () => Results.Ok(new { service = "CrushBox Telegram Bot", status = "running" }));
-app.MapGet("/health", () => Results.Ok(new { status = "healthy", utc = DateTimeOffset.UtcNow }));
+app.MapGet("/", () => Results.Ok(new { service = "CrushBox Telegram Bot", status = "running", version = deploymentVersion }));
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", version = deploymentVersion, utc = DateTimeOffset.UtcNow }));
 
 if (!string.IsNullOrWhiteSpace(webhookUrl))
 {
@@ -87,9 +88,10 @@ else
 
 var me = await botClient.GetMe(app.Lifetime.ApplicationStopping);
 app.Logger.LogInformation(
-    "Bot @{Username} is running in {Mode} mode.",
+    "Bot @{Username} is running in {Mode} mode. Version: {Version}",
     me.Username,
-    string.IsNullOrWhiteSpace(webhookUrl) ? "polling" : "webhook");
+    string.IsNullOrWhiteSpace(webhookUrl) ? "polling" : "webhook",
+    deploymentVersion);
 
 await app.RunAsync();
 
