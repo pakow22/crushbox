@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.log
+*.zip
+.env
+appsettings.json
+data/users.json
+data/users.json.tmp
+App_Data/users.json
+App_Data/users.json.tmp
+publish/

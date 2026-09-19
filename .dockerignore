@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+.git/
+.vs/
+.idea/
+publish/
+*.zip
+*.log
+appsettings.json
+App_Data/
+data/
