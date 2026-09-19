@@ -15,6 +15,7 @@ public sealed class MatchmakingService
 
     private readonly object _lock = new();
     private readonly Dictionary<long, BotUser> _users = [];
+    private readonly Dictionary<long, BotUser> _profileEditBackups = [];
     private readonly Random _random = new();
     private readonly string _storagePath;
     private readonly IDbContextFactory<BotDbContext>? _dbContextFactory;
@@ -61,6 +62,7 @@ public sealed class MatchmakingService
     {
         lock (_lock)
         {
+            _profileEditBackups.Remove(chatId);
             DisconnectInsideLock(chatId);
 
             var user = new BotUser
@@ -74,6 +76,54 @@ public sealed class MatchmakingService
             _users[chatId] = user;
             SaveUsersInsideLock();
             return Clone(user);
+        }
+    }
+
+    public BotUser BeginProfileEdit(User telegramUser, long chatId)
+    {
+        lock (_lock)
+        {
+            DisconnectInsideLock(chatId);
+            var currentUser = _users[chatId];
+            _profileEditBackups[chatId] = Clone(currentUser);
+
+            var editingUser = new BotUser
+            {
+                ChatId = chatId,
+                TelegramUsername = telegramUser.Username,
+                Step = RegistrationStep.AwaitingName,
+                LastSeenAt = DateTimeOffset.UtcNow
+            };
+
+            _users[chatId] = editingUser;
+            SaveUsersInsideLock();
+            return Clone(editingUser);
+        }
+    }
+
+    public bool IsEditingProfile(long chatId)
+    {
+        lock (_lock)
+        {
+            return _profileEditBackups.ContainsKey(chatId);
+        }
+    }
+
+    public BotUser? CancelProfileEdit(long chatId)
+    {
+        lock (_lock)
+        {
+            if (!_profileEditBackups.Remove(chatId, out var previousUser))
+            {
+                return null;
+            }
+
+            previousUser.CurrentPartnerChatId = null;
+            previousUser.HasAcceptedCurrentMatch = false;
+            previousUser.LastSeenAt = DateTimeOffset.UtcNow;
+            _users[chatId] = previousUser;
+            SaveUsersInsideLock();
+            return Clone(previousUser);
         }
     }
 
@@ -194,6 +244,7 @@ public sealed class MatchmakingService
             user.IsActive = true;
             user.HasAcceptedCurrentMatch = false;
             user.LastSeenAt = DateTimeOffset.UtcNow;
+            _profileEditBackups.Remove(chatId);
             SaveUsersInsideLock();
             return Clone(user);
         }

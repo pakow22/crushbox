@@ -13,6 +13,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
     private const string StayText = "დარჩი";
     private const string StopText = "Stop";
     private const string EditProfileText = "პროფილის შეცვლა";
+    private const string CancelEditText = "გაუქმება";
     private const string SkipPhotoText = "გამოტოვება";
     private const string MaleText = "კაცი";
     private const string FemaleText = "ქალი";
@@ -81,6 +82,12 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
         if (IsCommand(text, "next") || text is NextText)
         {
             await FindNext(botClient, chatId, cancellationToken);
+            return;
+        }
+
+        if (IsCommand(text, "cancel") || text is CancelEditText)
+        {
+            await CancelProfileEdit(botClient, chatId, cancellationToken);
             return;
         }
 
@@ -161,12 +168,12 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
     {
         if (string.IsNullOrWhiteSpace(text) || text.StartsWith('/'))
         {
-            await botClient.SendMessage(chatId, "სახელი ტექსტით მომწერე.", cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "სახელი ტექსტით მომწერე.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
             return;
         }
 
         matchmaking.SetName(chatId, text);
-        await botClient.SendMessage(chatId, "ახლა აირჩიე სქესი.", replyMarkup: GenderKeyboard(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "ახლა აირჩიე სქესი.", replyMarkup: GenderKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
     }
 
     private async Task HandleGender(ITelegramBotClient botClient, long chatId, string? text, CancellationToken cancellationToken)
@@ -181,12 +188,12 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
 
         if (gender is null)
         {
-            await botClient.SendMessage(chatId, "გთხოვ, ღილაკებიდან აირჩიე სქესი.", replyMarkup: GenderKeyboard(), cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "გთხოვ, ღილაკებიდან აირჩიე სქესი.", replyMarkup: GenderKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
             return;
         }
 
         matchmaking.SetGender(chatId, gender.Value);
-        await botClient.SendMessage(chatId, "ვის ეძებ?", replyMarkup: LookingForKeyboard(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "ვის ეძებ?", replyMarkup: LookingForKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
     }
 
     private async Task OpenSettings(ITelegramBotClient botClient, long chatId, BotUser user, CancellationToken cancellationToken)
@@ -214,12 +221,36 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
             return;
         }
 
-        matchmaking.RestartRegistration(telegramUser, chatId);
+        matchmaking.BeginProfileEdit(telegramUser, chatId);
         await botClient.SendMessage(
             chatId,
             "დავიწყოთ პროფილის შეცვლა. დაწერე შენი სახელი.",
-            replyMarkup: new ReplyKeyboardRemove(),
+            replyMarkup: CancelOnlyKeyboard(),
             cancellationToken: cancellationToken);
+    }
+
+    private async Task CancelProfileEdit(
+        ITelegramBotClient botClient,
+        long chatId,
+        CancellationToken cancellationToken)
+    {
+        var restoredUser = matchmaking.CancelProfileEdit(chatId);
+        if (restoredUser is null)
+        {
+            await botClient.SendMessage(
+                chatId,
+                "გასაუქმებელი პროფილის ცვლილება არ არის.",
+                replyMarkup: MainKeyboard(),
+                cancellationToken: cancellationToken);
+            return;
+        }
+
+        await botClient.SendMessage(
+            chatId,
+            "პროფილის შეცვლა გაუქმდა. ძველი პროფილი აღდგენილია.",
+            replyMarkup: MainKeyboard(),
+            cancellationToken: cancellationToken);
+        await SendProfileCard(botClient, chatId, restoredUser, MainKeyboard(), cancellationToken);
     }
 
     private async Task HandleLookingFor(
@@ -239,7 +270,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
 
         if (lookingFor is null)
         {
-            await botClient.SendMessage(chatId, "გთხოვ, ღილაკებიდან აირჩიე ვის ეძებ.", replyMarkup: LookingForKeyboard(), cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "გთხოვ, ღილაკებიდან აირჩიე ვის ეძებ.", replyMarkup: LookingForKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
             return;
         }
 
@@ -255,19 +286,19 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
             return;
         }
 
-        await botClient.SendMessage(chatId, "რომელ ქალაქში ხარ?", replyMarkup: new ReplyKeyboardRemove(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "რომელ ქალაქში ხარ?", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
     }
 
     private async Task HandleCity(ITelegramBotClient botClient, long chatId, string? text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text) || text.StartsWith('/'))
         {
-            await botClient.SendMessage(chatId, "ქალაქი ტექსტით მომწერე.", cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "ქალაქი ტექსტით მომწერე.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
             return;
         }
 
         matchmaking.SetCity(chatId, text);
-        await botClient.SendMessage(chatId, "დაწერე დაბადების წელი, მაგალითად 1998.", cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "დაწერე დაბადების წელი, მაგალითად 1998.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
     }
 
     private async Task HandleBirthYear(ITelegramBotClient botClient, long chatId, string? text, CancellationToken cancellationToken)
@@ -277,42 +308,42 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
 
         if (!int.TryParse(text, out var birthYear) || birthYear < minYear || birthYear > maxYear)
         {
-            await botClient.SendMessage(chatId, $"დაბადების წელი უნდა იყოს {minYear}-{maxYear} შუალედში.", cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, $"დაბადების წელი უნდა იყოს {minYear}-{maxYear} შუალედში.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
             return;
         }
 
         matchmaking.SetBirthYear(chatId, birthYear);
-        await botClient.SendMessage(chatId, "აირჩიე დაბადების თვე.", replyMarkup: BirthMonthKeyboard(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "აირჩიე დაბადების თვე.", replyMarkup: BirthMonthKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
     }
 
     private async Task HandleBirthMonth(ITelegramBotClient botClient, long chatId, string? text, CancellationToken cancellationToken)
     {
         if (!int.TryParse(text, out var birthMonth) || birthMonth < 1 || birthMonth > 12)
         {
-            await botClient.SendMessage(chatId, "გთხოვ, აირჩიე თვე 1-დან 12-მდე.", replyMarkup: BirthMonthKeyboard(), cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "გთხოვ, აირჩიე თვე 1-დან 12-მდე.", replyMarkup: BirthMonthKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
             return;
         }
 
         matchmaking.SetBirthMonth(chatId, birthMonth);
-        await botClient.SendMessage(chatId, "დაწერე მოკლედ შენ შესახებ.", replyMarkup: new ReplyKeyboardRemove(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "დაწერე მოკლედ შენ შესახებ.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
     }
 
     private async Task HandleAbout(ITelegramBotClient botClient, long chatId, string? text, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(text) || text.StartsWith('/'))
         {
-            await botClient.SendMessage(chatId, "შენ შესახებ ტექსტი მომწერე.", cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "შენ შესახებ ტექსტი მომწერე.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
             return;
         }
 
         if (text.Length > 500)
         {
-            await botClient.SendMessage(chatId, "აღწერა მაქსიმუმ 500 სიმბოლო იყოს.", cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "აღწერა მაქსიმუმ 500 სიმბოლო იყოს.", replyMarkup: CancelKeyboardOrRemove(chatId), cancellationToken: cancellationToken);
             return;
         }
 
         matchmaking.SetAbout(chatId, text);
-        await botClient.SendMessage(chatId, "ახლა ატვირთე ფოტო ან დააჭირე გამოტოვებას.", replyMarkup: SkipPhotoKeyboard(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "ახლა ატვირთე ფოტო ან დააჭირე გამოტოვებას.", replyMarkup: SkipPhotoKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
     }
 
     private async Task HandlePhoto(ITelegramBotClient botClient, Message message, CancellationToken cancellationToken)
@@ -333,7 +364,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
 
         if (photo is null)
         {
-            await botClient.SendMessage(chatId, "გამომიგზავნე ფოტო ან დააჭირე გამოტოვებას.", replyMarkup: SkipPhotoKeyboard(), cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "გამომიგზავნე ფოტო ან დააჭირე გამოტოვებას.", replyMarkup: SkipPhotoKeyboard(matchmaking.IsEditingProfile(chatId)), cancellationToken: cancellationToken);
             return;
         }
 
@@ -492,51 +523,93 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
             ResizeKeyboard = true
         };
 
-    private static ReplyKeyboardMarkup SkipPhotoKeyboard() =>
+    private IReplyMarkup CancelKeyboardOrRemove(long chatId) =>
+        matchmaking.IsEditingProfile(chatId)
+            ? CancelOnlyKeyboard()
+            : new ReplyKeyboardRemove();
+
+    private static ReplyKeyboardMarkup CancelOnlyKeyboard() =>
         new(new[]
         {
-            new KeyboardButton[] { SkipPhotoText }
+            new KeyboardButton[] { CancelEditText }
         })
+        {
+            ResizeKeyboard = true
+        };
+
+    private static ReplyKeyboardMarkup SkipPhotoKeyboard(bool allowCancel = false)
+    {
+        var rows = new List<KeyboardButton[]>
+        {
+            new KeyboardButton[] { SkipPhotoText }
+        };
+        AddCancelRow(rows, allowCancel);
+
+        return new ReplyKeyboardMarkup(rows)
         {
             ResizeKeyboard = true,
             OneTimeKeyboard = true
         };
+    }
 
-    private static ReplyKeyboardMarkup GenderKeyboard() =>
-        new(new[]
+    private static ReplyKeyboardMarkup GenderKeyboard(bool allowCancel = false)
+    {
+        var rows = new List<KeyboardButton[]>
         {
             new KeyboardButton[] { MaleText, FemaleText },
             new KeyboardButton[] { OtherText }
-        })
+        };
+        AddCancelRow(rows, allowCancel);
+
+        return new ReplyKeyboardMarkup(rows)
         {
             ResizeKeyboard = true,
             OneTimeKeyboard = true
         };
+    }
 
-    private static ReplyKeyboardMarkup LookingForKeyboard() =>
-        new(new[]
+    private static ReplyKeyboardMarkup LookingForKeyboard(bool allowCancel = false)
+    {
+        var rows = new List<KeyboardButton[]>
         {
             new KeyboardButton[] { LookingForFemaleText },
             new KeyboardButton[] { LookingForMaleText },
             new KeyboardButton[] { LookingForAnyText }
-        })
+        };
+        AddCancelRow(rows, allowCancel);
+
+        return new ReplyKeyboardMarkup(rows)
         {
             ResizeKeyboard = true,
             OneTimeKeyboard = true
         };
+    }
 
-    private static ReplyKeyboardMarkup BirthMonthKeyboard() =>
-        new(new[]
+    private static ReplyKeyboardMarkup BirthMonthKeyboard(bool allowCancel = false)
+    {
+        var rows = new List<KeyboardButton[]>
         {
             new KeyboardButton[] { "1", "2", "3" },
             new KeyboardButton[] { "4", "5", "6" },
             new KeyboardButton[] { "7", "8", "9" },
             new KeyboardButton[] { "10", "11", "12" }
-        })
+        };
+        AddCancelRow(rows, allowCancel);
+
+        return new ReplyKeyboardMarkup(rows)
         {
             ResizeKeyboard = true,
             OneTimeKeyboard = true
         };
+    }
+
+    private static void AddCancelRow(List<KeyboardButton[]> rows, bool allowCancel)
+    {
+        if (allowCancel)
+        {
+            rows.Add([CancelEditText]);
+        }
+    }
 
     private static string FormatProfile(BotUser user) =>
         $"სახელი: {user.Name}\n" +
