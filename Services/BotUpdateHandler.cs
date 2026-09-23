@@ -10,7 +10,6 @@ namespace DatingMatchBot.Services;
 public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHandler
 {
     private const string NextText = "Next";
-    private const string StayText = "დარჩი";
     private const string StopText = "Stop";
     private const string EditProfileText = "პროფილის შეცვლა";
     private const string BackText = "უკან";
@@ -137,12 +136,6 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
         if (user.Step == RegistrationStep.AwaitingPhoto)
         {
             await HandlePhoto(botClient, message, cancellationToken);
-            return;
-        }
-
-        if (text is StayText)
-        {
-            await AcceptMatch(botClient, chatId, cancellationToken);
             return;
         }
 
@@ -413,33 +406,11 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
             return;
         }
 
-        await botClient.SendMessage(chatId, "ვიპოვე ახალი პროფილი. აირჩიე დარჩი ან Next.", replyMarkup: MatchDecisionKeyboard(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(chatId, "ვიპოვე ახალი პროფილი. შეგიძლია პირდაპირ მიწერო ან დააჭირო Next-ს.", replyMarkup: MatchDecisionKeyboard(), cancellationToken: cancellationToken);
         await SendProfileCard(botClient, chatId, result.Partner!, MatchDecisionKeyboard(), cancellationToken);
 
-        await botClient.SendMessage(result.Partner!.ChatId, "ვიპოვე ახალი პროფილი. აირჩიე დარჩი ან Next.", replyMarkup: MatchDecisionKeyboard(), cancellationToken: cancellationToken);
+        await botClient.SendMessage(result.Partner!.ChatId, "ვიპოვე ახალი პროფილი. შეგიძლია პირდაპირ მიწერო ან დააჭირო Next-ს.", replyMarkup: MatchDecisionKeyboard(), cancellationToken: cancellationToken);
         await SendProfileCard(botClient, result.Partner.ChatId, result.User!, MatchDecisionKeyboard(), cancellationToken);
-    }
-
-    private async Task AcceptMatch(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken)
-    {
-        var result = matchmaking.AcceptMatch(chatId);
-
-        if (result.Partner is null)
-        {
-            await botClient.SendMessage(chatId, "ჯერ პარტნიორი არ გყავს. დააჭირე Next-ს.", replyMarkup: MainKeyboard(), cancellationToken: cancellationToken);
-            return;
-        }
-
-        await botClient.SendMessage(
-            chatId,
-            result.BothAccepted ? "ორივემ აირჩიეთ დარჩენა. ახლა შეგიძლია მიწერო." : "შენ დარჩი. ველოდებით პარტნიორის არჩევანს.",
-            replyMarkup: MainKeyboard(),
-            cancellationToken: cancellationToken);
-
-        if (result.BothAccepted)
-        {
-            await botClient.SendMessage(result.Partner.ChatId, "ორივემ აირჩიეთ დარჩენა. ახლა შეგიძლიათ მიწეროთ.", replyMarkup: MainKeyboard(), cancellationToken: cancellationToken);
-        }
     }
 
     private async Task StopChat(ITelegramBotClient botClient, long chatId, CancellationToken cancellationToken)
@@ -461,12 +432,6 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
         if (partner is null)
         {
             await botClient.SendMessage(message.Chat.Id, "ჯერ პარტნიორი არ გყავს. დააჭირე Next-ს.", replyMarkup: MainKeyboard(), cancellationToken: cancellationToken);
-            return;
-        }
-
-        if (!matchmaking.CanChat(message.Chat.Id))
-        {
-            await botClient.SendMessage(message.Chat.Id, "ჩატი ჯერ არ დაწყებულა. ორივემ უნდა დააჭიროთ დარჩი-ს.", replyMarkup: MatchDecisionKeyboard(), cancellationToken: cancellationToken);
             return;
         }
 
@@ -522,7 +487,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
     private static ReplyKeyboardMarkup MatchDecisionKeyboard() =>
         new(new[]
         {
-            new KeyboardButton[] { StayText, NextText }
+            new KeyboardButton[] { NextText }
         })
         {
             ResizeKeyboard = true

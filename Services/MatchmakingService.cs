@@ -281,8 +281,8 @@ public sealed class MatchmakingService
             var partner = candidates[_random.Next(candidates.Count)];
             user.CurrentPartnerChatId = partner.ChatId;
             partner.CurrentPartnerChatId = user.ChatId;
-            user.HasAcceptedCurrentMatch = false;
-            partner.HasAcceptedCurrentMatch = false;
+            user.HasAcceptedCurrentMatch = true;
+            partner.HasAcceptedCurrentMatch = true;
             user.IsActive = true;
             partner.IsActive = true;
 
