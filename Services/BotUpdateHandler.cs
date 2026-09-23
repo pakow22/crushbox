@@ -402,7 +402,7 @@ public sealed class BotUpdateHandler(MatchmakingService matchmaking) : IUpdateHa
 
         if (result.Status == MatchSearchStatus.Waiting)
         {
-            await botClient.SendMessage(chatId, "ამ მომენტში თავისუფალი აქტიური მომხმარებელი ვერ ვიპოვე. ცოტა ხანში ისევ დააჭირე Next-ს.", replyMarkup: MainKeyboard(), cancellationToken: cancellationToken);
+            await botClient.SendMessage(chatId, "ამ მომენტში თავისუფალი მომხმარებელი ვერ ვიპოვე. შენ ისევ აქტიურ ძებნაში ხარ და ახალი მომხმარებლის გამოჩენისას შეიძლება დაგაკავშიროთ.", replyMarkup: MainKeyboard(), cancellationToken: cancellationToken);
             return;
         }
 
